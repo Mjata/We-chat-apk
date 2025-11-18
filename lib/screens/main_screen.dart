@@ -1,12 +1,10 @@
 
 import 'package:flutter/material.dart';
-import 'package:myapp/main.dart';
 import 'package:myapp/screens/tabs/calls_tab.dart';
 import 'package:myapp/screens/tabs/home_tab.dart';
-import 'package:myapp/screens/tabs/live_tab.dart';
 import 'package:myapp/screens/tabs/message_tab.dart';
-import 'package:myapp/screens/tabs/profile_tab.dart';
-import 'package:provider/provider.dart';
+import 'package:myapp/screens/settings_screen.dart';
+import 'package:myapp/widgets/custom_bottom_nav_bar.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -17,12 +15,12 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+
   static const List<Widget> _widgetOptions = <Widget>[
     HomeTab(),
-    MessageTab(),
     CallsTab(),
-    LiveTab(),
-    ProfileTab(),
+    MessageTab(),
+    SettingsScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -33,48 +31,33 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat App'),
+        title: const Text('We Chat'),
         actions: [
           IconButton(
-            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: () => themeProvider.toggleTheme(),
-            tooltip: 'Toggle Theme',
+            icon: const Icon(Icons.search),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {},
           ),
         ],
       ),
-      body: _widgetOptions.elementAt(_selectedIndex),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.message),
-            label: 'Message',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.call),
-            label: 'Calls',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.live_tv),
-            label: 'Live',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+      body: Center(
+        child: _widgetOptions.elementAt(_selectedIndex),
       ),
+      bottomNavigationBar: CustomBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onItemTapped: _onItemTapped,
+      ),
+      floatingActionButton: _selectedIndex == 2 // Show FAB only on MessageTab
+          ? FloatingActionButton(
+              onPressed: () {},
+              child: const Icon(Icons.chat),
+            )
+          : null,
     );
   }
 }

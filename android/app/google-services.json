@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1067772183738",
+    "project_id": "hrmchat-67388",
+    "storage_bucket": "hrmchat-67388.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1067772183738:android:c1546b0fcc1f3097f8ae83",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxibJU6Ef7I36_x0IfP2iYYV-mDsePl3c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

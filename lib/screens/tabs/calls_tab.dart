@@ -1,91 +1,76 @@
 
 import 'package:flutter/material.dart';
+import 'package:myapp/screens/go_live_screen.dart';
 
 class CallsTab extends StatelessWidget {
   const CallsTab({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: const [
-        CallHistoryItem(
-          name: 'User 20',
-          callType: CallType.outgoing,
-          time: 'Today, 11:05 AM',
-        ),
-        CallHistoryItem(
-          name: 'User 21',
-          callType: CallType.incoming,
-          time: 'Yesterday, 8:30 PM',
-        ),
-        CallHistoryItem(
-          name: 'User 22',
-          callType: CallType.missed,
-          time: '2 days ago',
-        ),
-      ],
-    );
-  }
-}
-
-enum CallType { incoming, outgoing, missed }
-
-class CallHistoryItem extends StatelessWidget {
-  const CallHistoryItem({
-    super.key,
-    required this.name,
-    required this.callType,
-    required this.time,
-  });
-
-  final String name;
-  final CallType callType;
-  final String time;
-
-  IconData get callIcon {
-    switch (callType) {
-      case CallType.incoming:
-        return Icons.call_received;
-      case CallType.outgoing:
-        return Icons.call_made;
-      case CallType.missed:
-        return Icons.call_missed;
-    }
-  }
-
-  Color get callColor {
-    switch (callType) {
-      case CallType.incoming:
-        return Colors.green;
-      case CallType.outgoing:
-        return Colors.blue;
-      case CallType.missed:
-        return Colors.red;
-    }
-  }
+  // Dummy data for call history
+  final List<Map<String, dynamic>> callHistory = const [
+    {
+      'name': 'Alice',
+      'type': 'Incoming',
+      'time': '11:45 AM',
+      'profilePictureUrl': 'https://picsum.photos/200/300?random=4',
+      'callTypeIcon': Icons.call_received,
+      'color': Colors.green,
+    },
+    {
+      'name': 'Bob',
+      'type': 'Outgoing',
+      'time': 'Yesterday',
+      'profilePictureUrl': 'https://picsum.photos/200/300?random=5',
+      'callTypeIcon': Icons.call_made,
+      'color': Colors.blue,
+    },
+    {
+      'name': 'Charlie',
+      'type': 'Missed',
+      'time': '2 days ago',
+      'profilePictureUrl': 'https://picsum.photos/200/300?random=6',
+      'callTypeIcon': Icons.call_missed,
+      'color': Colors.red,
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        radius: 30,
-        backgroundImage: NetworkImage('https://picsum.photos/200/300?random=${name.hashCode}'),
+    return Scaffold(
+      body: ListView.builder(
+        itemCount: callHistory.length,
+        itemBuilder: (context, index) {
+          final call = callHistory[index];
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundImage: NetworkImage(call['profilePictureUrl']!),
+            ),
+            title: Text(call['name']!),
+            subtitle: Row(
+              children: [
+                Icon(
+                  call['callTypeIcon']!,
+                  color: call['color']!,
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(call['type']!),
+              ],
+            ),
+            trailing: Text(call['time']!),
+            onTap: () {
+              // Handle call tap
+            },
+          );
+        },
       ),
-      title: Text(name),
-      subtitle: Row(
-        children: [
-          Icon(
-            callIcon,
-            color: callColor,
-            size: 16,
-          ),
-          const SizedBox(width: 5),
-          Text(time),
-        ],
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.call),
-        onPressed: () {},
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+            Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const GoLiveScreen()),
+              );
+        },
+        child: const Icon(Icons.video_call),
       ),
     );
   }
