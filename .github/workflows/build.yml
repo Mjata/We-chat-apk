@@ -17,7 +17,7 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: '12.x'
+          java-version: '17'
           distribution: 'adopt'
 
       - name: Set up Flutter
