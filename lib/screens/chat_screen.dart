@@ -1,14 +1,10 @@
 
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:myapp/models/chat_message.dart';
-// Removed old call screen imports
-// import 'package:myapp/screens/video_call_screen.dart';
-// import 'package:myapp/screens/voice_call_screen.dart';
-import 'package:myapp/screens/call_screen.dart'; // Import the unified call screen
-import 'package:myapp/services/api_service.dart';
 import 'package:myapp/widgets/message_bubble.dart';
 import 'package:myapp/widgets/message_composer.dart';
-import 'dart:developer' as developer;
 
 class ChatScreen extends StatefulWidget {
   final String name;
@@ -25,22 +21,24 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final ApiService _apiService = ApiService();
+  final ImagePicker _picker = ImagePicker();
 
-  // Dummy data for chat messages
   final List<ChatMessage> _messages = [
     ChatMessage(
       text: 'Hey, how are you?',
+      type: MessageType.text,
       isSentByMe: false,
       timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
     ),
     ChatMessage(
       text: 'I\'m good, thanks! How about you?',
+      type: MessageType.text,
       isSentByMe: true,
       timestamp: DateTime.now().subtract(const Duration(minutes: 9)),
     ),
     ChatMessage(
       text: 'Doing great! Ready for our call?',
+      type: MessageType.text,
       isSentByMe: false,
       timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
     ),
@@ -52,6 +50,7 @@ class _ChatScreenState extends State<ChatScreen> {
         0,
         ChatMessage(
           text: text,
+          type: MessageType.text,
           isSentByMe: true,
           timestamp: DateTime.now(),
         ),
@@ -59,38 +58,27 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  Future<void> _startCall(String callType) async {
-    try {
-      // Use a placeholder for user IDs for now
-      const currentUserId = "current_user_id_placeholder";
-      const calleeUserId = "callee_id_placeholder";
-
-      final token = await _apiService.getLiveKitToken(calleeUserId, currentUserId);
-
-      if (token != null && mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CallScreen(
-              roomName: calleeUserId,
-              token: token,
-              calleeName: widget.name, // Use the name from the chat screen
-            ),
+  Future<void> _pickAndSendImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _messages.insert(
+          0,
+          ChatMessage(
+            image: File(image.path),
+            type: MessageType.image,
+            isSentByMe: true,
+            timestamp: DateTime.now(),
           ),
         );
-      } else {
-        throw Exception("Could not get a valid call token from the server.");
-      }
-    } on Exception catch (e) {
-      developer.log("Failed to start call: ", error: e);
-      String errorMessage = "Failed to start call. Please try again.";
-      if (e.toString().contains("402")) {
-        errorMessage = "You don't have enough coins for this call.";
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-      );
+      });
     }
+  }
+
+  void _startCall(String callType) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video and voice calls can only be initiated from the user\'s profile.')),
+      );
   }
 
   @override
@@ -128,7 +116,10 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          MessageComposer(onSend: _sendMessage),
+          MessageComposer(
+            onSend: _sendMessage,
+            onAttach: _pickAndSendImage,
+          ),
         ],
       ),
     );

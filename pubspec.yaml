@@ -28,6 +28,7 @@ dependencies:
   cloud_firestore: any
   livekit_client: ^2.5.3
   flutter_webrtc: ^1.2.0
+  uuid: ^4.5.2
 
 dev_dependencies:
   flutter_test:

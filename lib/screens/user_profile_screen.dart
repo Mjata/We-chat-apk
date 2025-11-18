@@ -1,57 +1,129 @@
 
 import 'package:flutter/material.dart';
+import 'package:myapp/models/user.dart';
+import 'package:myapp/screens/call_screen.dart';
+import 'package:myapp/services/api_service.dart';
+import 'package:uuid/uuid.dart';
 
-class UserProfileScreen extends StatelessWidget {
-  final int userIndex;
+class UserProfileScreen extends StatefulWidget {
+  final User user;
+  final User currentUser; // We need the current user to initiate the call
 
-  const UserProfileScreen({super.key, required this.userIndex});
+  const UserProfileScreen({super.key, required this.user, required this.currentUser});
+
+  @override
+  State<UserProfileScreen> createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends State<UserProfileScreen> {
+  final ApiService _apiService = ApiService();
+  bool _isInitiatingCall = false;
+
+  // Generate a unique room name for the call
+  final String _roomName = const Uuid().v4();
+
+  Future<void> _initiateCall(BuildContext context, bool isVideoCall) async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    setState(() {
+      _isInitiatingCall = true;
+    });
+
+    try {
+      // The local user (current user) is the one initiating the call
+      final token = await _apiService.getLiveKitToken(_roomName, widget.currentUser.id);
+
+      if (token == null) {
+        throw Exception('Failed to get a valid token from the server.');
+      }
+      if (!mounted) return;
+
+      navigator.push(
+        MaterialPageRoute(
+          builder: (context) => CallScreen(
+            roomName: _roomName,
+            liveKitToken: token,
+            localUser: widget.currentUser,
+            remoteUser: widget.user, // The user whose profile we are viewing
+            isVideoCall: isVideoCall,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Could not start call: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitiatingCall = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Simulate user data based on index for demonstration
-    final String pichaYaWasifu = 'https://picsum.photos/200/300?random=${userIndex + 1}';
-    final String jinaLaMtumiaji = 'User ${userIndex + 1}';
-    final String age = '${20 + (userIndex % 10)}'; // Simulate age between 20-29
-    final String location = 'City ${userIndex % 5}'; // Simulate a few locations
-    final String bio = 'This is the bio of $jinaLaMtumiaji. They enjoy Flutter and long walks on the beach.';
-    final List<String> userPhotos = List.generate(3, (i) => 'https://picsum.photos/seed/${userIndex}_$i/400/400');
-
     final colorScheme = Theme.of(context).colorScheme;
+
+    // Dummy list of photos, in a real app this would come from the user object
+    final List<String> userPhotos = List.generate(3, (i) => 'https://picsum.photos/seed/${widget.user.id}_$i/400/400');
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(jinaLaMtumiaji),
+        title: Text(widget.user.name),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
       extendBodyBehindAppBar: true,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildProfileHeader(pichaYaWasifu),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  _buildProfileInfo(jinaLaMtumiaji, age, location),
-                  const SizedBox(height: 16),
-                  Text(
-                    bio,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildProfileHeader(widget.user.profilePictureUrl),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      _buildProfileInfo(widget.user.name, widget.user.age.toString(), "Unknown"), // Assuming location is not available
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.user.bio,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildActionButtons(context, colorScheme),
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      _buildPhotoGrid(userPhotos),
+                      const SizedBox(height: 24),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                  _buildActionButtons(context, colorScheme),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  _buildPhotoGrid(userPhotos),
-                  const SizedBox(height: 24),
-                ],
+                ),
+              ],
+            ),
+          ),
+          if (_isInitiatingCall)
+            Container(
+              color: Colors.black.withAlpha(128),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Starting Call...', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  ],
+                )
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -69,7 +141,7 @@ class UserProfileScreen extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.black.withAlpha((255 * 0.6).round()), Colors.transparent],
+            colors: [Colors.black.withAlpha(153), Colors.transparent],
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
           ),
@@ -95,53 +167,69 @@ class UserProfileScreen extends StatelessWidget {
               '$age years',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
-            const SizedBox(width: 24),
-            const Icon(Icons.location_on, size: 18, color: Colors.grey),
-            const SizedBox(width: 4),
-            Text(
-              location,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
           ],
         ),
       ],
     );
   }
 
-    Widget _buildActionButtons(BuildContext context, ColorScheme colorScheme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildActionButtons(BuildContext context, ColorScheme colorScheme) {
+    return Column(
       children: [
-        _buildActionButton(
-          context,
-          icon: Icons.message,
-          label: 'Message',
-          onPressed: () {
-            // Since we don't have the full user object, we can't navigate to chat directly.
-            // In a real app, you would pass the user ID and use it to start a chat.
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Message button pressed!')),
-            );
-          },
-          color: colorScheme.primary,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildActionButton(
+              context,
+              icon: Icons.message,
+              label: 'Message',
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Message feature not implemented yet.')),
+                );
+              },
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 16),
+            _buildActionButton(
+              context,
+              icon: Icons.person_add,
+              label: 'Follow',
+              onPressed: () { 
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Follow feature not implemented yet.')),
+                );
+              },
+              color: Colors.blue.shade400,
+            ),
+          ],
         ),
-        const SizedBox(width: 16),
-        _buildActionButton(
-          context,
-          icon: Icons.person_add,
-          label: 'Follow',
-          onPressed: () {
-             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Follow button pressed!')),
-            );
-          },
-          color: Colors.blue.shade400,
-        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+             _buildActionButton(
+              context,
+              icon: Icons.call,
+              label: 'Voice Call',
+              onPressed: () => _initiateCall(context, false),
+              color: Colors.green,
+            ),
+            const SizedBox(width: 16),
+            _buildActionButton(
+              context,
+              icon: Icons.videocam,
+              label: 'Video Call',
+              onPressed: () => _initiateCall(context, true),
+              color: Colors.red,
+            ),
+          ],
+        )
       ],
     );
   }
 
-    Widget _buildActionButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed, required Color color}) {
+  Widget _buildActionButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed, required Color color}) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 20),
@@ -156,7 +244,6 @@ class UserProfileScreen extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildPhotoGrid(List<String> photos) {
     if (photos.isEmpty) {

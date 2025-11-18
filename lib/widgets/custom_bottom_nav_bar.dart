@@ -24,12 +24,16 @@ class CustomBottomNavBar extends StatelessWidget {
           label: 'Calls',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.message),
+          icon: Icon(Icons.chat),
           label: 'Messages',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.settings),
-          label: 'Settings',
+          icon: Icon(Icons.live_tv),
+          label: 'Live',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: 'Profile',
         ),
       ],
       currentIndex: selectedIndex,

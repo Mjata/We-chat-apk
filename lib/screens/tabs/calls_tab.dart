@@ -1,77 +1,103 @@
 
 import 'package:flutter/material.dart';
-import 'package:myapp/screens/go_live_screen.dart';
+import 'package:myapp/models/call_history.dart';
+import 'package:myapp/services/api_service.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
-class CallsTab extends StatelessWidget {
+class CallsTab extends StatefulWidget {
   const CallsTab({super.key});
 
-  // Dummy data for call history
-  final List<Map<String, dynamic>> callHistory = const [
-    {
-      'name': 'Alice',
-      'type': 'Incoming',
-      'time': '11:45 AM',
-      'profilePictureUrl': 'https://picsum.photos/200/300?random=4',
-      'callTypeIcon': Icons.call_received,
-      'color': Colors.green,
-    },
-    {
-      'name': 'Bob',
-      'type': 'Outgoing',
-      'time': 'Yesterday',
-      'profilePictureUrl': 'https://picsum.photos/200/300?random=5',
-      'callTypeIcon': Icons.call_made,
-      'color': Colors.blue,
-    },
-    {
-      'name': 'Charlie',
-      'type': 'Missed',
-      'time': '2 days ago',
-      'profilePictureUrl': 'https://picsum.photos/200/300?random=6',
-      'callTypeIcon': Icons.call_missed,
-      'color': Colors.red,
-    },
-  ];
+  @override
+  State<CallsTab> createState() => _CallsTabState();
+}
+
+class _CallsTabState extends State<CallsTab> {
+  final ApiService apiService = ApiService();
+  late Future<List<CallHistory>> _callHistoryFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _callHistoryFuture = _fetchCallHistory();
+  }
+
+  Future<List<CallHistory>> _fetchCallHistory() async {
+    try {
+      final data = await apiService.getCallHistory();
+      return data.map((json) => CallHistory.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Failed to load call history: $e');
+    }
+  }
+
+  IconData _getCallTypeIcon(CallType type) {
+    switch (type) {
+      case CallType.incoming:
+        return Icons.call_received;
+      case CallType.outgoing:
+        return Icons.call_made;
+      case CallType.missed:
+        return Icons.call_missed;
+    }
+  }
+
+  Color _getCallTypeColor(CallType type) {
+    switch (type) {
+      case CallType.incoming:
+        return Colors.green;
+      case CallType.outgoing:
+        return Colors.blue;
+      case CallType.missed:
+        return Colors.red;
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: ListView.builder(
-        itemCount: callHistory.length,
-        itemBuilder: (context, index) {
-          final call = callHistory[index];
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundImage: NetworkImage(call['profilePictureUrl']!),
-            ),
-            title: Text(call['name']!),
-            subtitle: Row(
-              children: [
-                Icon(
-                  call['callTypeIcon']!,
-                  color: call['color']!,
-                  size: 16,
+    return FutureBuilder<List<CallHistory>>(
+      future: _callHistoryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No call history found.'));
+        } else {
+          final callHistory = snapshot.data!;
+          return ListView.builder(
+            itemCount: callHistory.length,
+            itemBuilder: (context, index) {
+              final call = callHistory[index];
+              final user = call.user;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: NetworkImage(user.profilePictureUrl),
                 ),
-                const SizedBox(width: 4),
-                Text(call['type']!),
-              ],
-            ),
-            trailing: Text(call['time']!),
-            onTap: () {
-              // Handle call tap
+                title: Text(user.name),
+                subtitle: Row(
+                  children: [
+                    Icon(
+                      _getCallTypeIcon(call.type),
+                      color: _getCallTypeColor(call.type),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(call.type.toString().split('.').last),
+                  ],
+                ),
+                trailing: Text(
+                  timeago.format(call.timestamp),
+                ),
+                onTap: () {
+                  // Handle call tap
+                },
+              );
             },
           );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-            Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const GoLiveScreen()),
-              );
-        },
-        child: const Icon(Icons.video_call),
-      ),
+        }
+      },
     );
   }
 }

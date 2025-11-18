@@ -55,6 +55,57 @@ class ApiService {
   }
 
 
+  /// =================================================
+  /// AUTHENTICATION
+  /// =================================================
+  
+  Future<Map<String, dynamic>> signUp(String email, String password) async {
+    try {
+      final response = await _dio.post('/auth/signup', data: {
+        'email': email,
+        'password': password,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// =================================================
+  /// USER PROFILE
+  /// =================================================
+
+  Future<void> updateUserProfile(Map<String, dynamic> data) async {
+    try {
+      await _dio.patch('/user/profile', data: data);
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<List<dynamic>> getUsers() async {
+    try {
+      final response = await _dio.get('/users');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// =================================================
+  /// MESSAGING
+  /// =================================================
+
+  Future<List<dynamic>> getConversations() async {
+    try {
+      final response = await _dio.get('/conversations');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+
   /// 1. User & Account
   Future<void> setupNewUser() async {
     try {
@@ -65,13 +116,22 @@ class ApiService {
   }
 
   /// 2. Payments & Recharge (Pesapal)
-  Future<String?> initiateRecharge(String packageId, String phoneNumber) async {
+  Future<String?> initiateMpesaPayment(String packageId, String phoneNumber) async {
     try {
       final response = await _dio.post(
         '/recharge/initiate',
         data: {'packageId': packageId, 'phoneNumber': phoneNumber},
       );
       return response.data['redirectUrl'];
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+    Future<List<dynamic>> getRechargePackages() async {
+    try {
+      final response = await _dio.get('/recharge/packages');
+      return response.data;
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -119,6 +179,15 @@ class ApiService {
     } on DioException catch (e) {
         developer.log('Error in chargeCallDuration', error: e);
         throw _handleError(e);
+    }
+  }
+
+  Future<List<dynamic>> getCallHistory() async {
+    try {
+      final response = await _dio.get('/calls/history');
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleError(e);
     }
   }
 

@@ -1,28 +1,8 @@
 
 import 'package:flutter/material.dart';
-import 'package:myapp/screens/payment_screen.dart'; // It will be our WebView screen
-import 'package:myapp/services/api_service.dart'; // Import ApiService
-
-// Updated data model to include a packageId for the API
-class RechargePackage {
-  final String packageId; // e.g., 'pack1', 'pack2'
-  final String name;
-  final String price;
-  final String benefits;
-  final IconData icon;
-  final List<Color> gradientColors;
-  final bool isPopular;
-
-  RechargePackage({
-    required this.packageId,
-    required this.name,
-    required this.price,
-    required this.benefits,
-    required this.icon,
-    required this.gradientColors,
-    this.isPopular = false,
-  });
-}
+import 'package:myapp/models/recharge_package.dart';
+import 'package:myapp/screens/payment_webview_screen.dart';
+import 'package:myapp/services/api_service.dart';
 
 class RechargeListScreen extends StatefulWidget {
   const RechargeListScreen({super.key});
@@ -34,36 +14,24 @@ class RechargeListScreen extends StatefulWidget {
 class _RechargeListScreenState extends State<RechargeListScreen> {
   final ApiService _apiService = ApiService();
   final TextEditingController _phoneController = TextEditingController();
-  bool _isLoading = false;
+  late Future<List<RechargePackage>> _packagesFuture;
+  bool _isProcessingPayment = false;
 
-  // Updated list with packageId
-  final List<RechargePackage> packages = [
-    RechargePackage(
-      packageId: 'pack1',
-      name: 'Gold',
-      price: '100 Coins',
-      benefits: '+1,500 Coins & Gold Frame',
-      icon: Icons.star,
-      gradientColors: [Colors.amber.shade400, Colors.orange.shade600],
-      isPopular: true,
-    ),
-    RechargePackage(
-      packageId: 'pack2',
-      name: 'Diamond',
-      price: '550 Coins',
-      benefits: '+3,200 Coins & Diamond Frame',
-      icon: Icons.diamond,
-      gradientColors: [Colors.blue.shade300, Colors.purple.shade300],
-    ),
-    RechargePackage(
-      packageId: 'pack3',
-      name: 'VIP',
-      price: '1200 Coins',
-      benefits: '+5,000 Coins & VIP Frame',
-      icon: Icons.verified_user,
-      gradientColors: [Colors.purple.shade700, Colors.pink.shade400],
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _packagesFuture = _fetchPackages();
+  }
+
+  Future<List<RechargePackage>> _fetchPackages() async {
+    try {
+      final data = await _apiService.getRechargePackages();
+      return data.map((json) => RechargePackage.fromJson(json)).toList();
+    } catch (e) {
+      // Rethrow to be caught by the FutureBuilder
+      throw Exception('Failed to load packages: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -73,27 +41,33 @@ class _RechargeListScreenState extends State<RechargeListScreen> {
 
   Future<void> _initiatePaymentFlow(RechargePackage package, String phoneNumber) async {
     setState(() {
-      _isLoading = true;
+      _isProcessingPayment = true;
     });
 
     try {
-      final redirectUrl = await _apiService.initiateRecharge(package.packageId, phoneNumber);
-      if (!mounted) return;
-      Navigator.push(
+      final redirectUrl = await _apiService.initiateMpesaPayment(package.id, phoneNumber);
+      if (!mounted || redirectUrl == null) return;
+      
+      // Close the dialog before navigating
+      Navigator.of(context, rootNavigator: true).pop(); 
+
+      await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PaymentScreen(url: redirectUrl!),
+          builder: (context) => PaymentWebViewScreen(initialUrl: redirectUrl),
         ),
       );
+      // Optionally, you can refresh user's coin balance here after payment screen is closed
+
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
+        SnackBar(content: Text('Error initiating payment: ${e.toString()}')),
       );
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isProcessingPayment = false;
         });
       }
     }
@@ -102,45 +76,59 @@ class _RechargeListScreenState extends State<RechargeListScreen> {
   void _showPaymentDialog(BuildContext context, RechargePackage package) {
     showDialog(
       context: context,
+      barrierDismissible: !_isProcessingPayment, // Prevent closing dialog while loading
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Pay with M-Pesa for ${package.name}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Enter your M-Pesa phone number to pay.'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
-                  hintText: '2547...',
-                  border: OutlineInputBorder(),
-                ),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Pay with M-Pesa for ${package.name}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_isProcessingPayment)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    Column(
+                      children: [
+                         Text('Complete the payment for ${package.price} KES to get ${package.coins} coins.'),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone Number',
+                            hintText: '2547...',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final phoneNumber = _phoneController.text;
-                if (!RegExp(r'^(254)\d{9}$').hasMatch(phoneNumber)) {
-                  ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Please enter a valid number, e.g., 254712345678')),
-                  );
-                  return;
-                }
-                Navigator.of(dialogContext).pop();
-                _initiatePaymentFlow(package, phoneNumber);
-              },
-              child: const Text('Proceed to Pay'),
-            ),
-          ],
+              actions: _isProcessingPayment
+                  ? []
+                  : [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          final phoneNumber = _phoneController.text.trim();
+                          if (!RegExp(r'^254\d{9}$').hasMatch(phoneNumber)) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(content: Text('Use format 254712345678')),
+                            );
+                            return;
+                          }
+                          // Use the dialog's context to manage its state
+                          _initiatePaymentFlow(package, phoneNumber);
+                        },
+                        child: const Text('Proceed to Pay'),
+                      ),
+                    ],
+            );
+          },
         );
       },
     );
@@ -155,9 +143,26 @@ class _RechargeListScreenState extends State<RechargeListScreen> {
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : GridView.builder(
+      body: FutureBuilder<List<RechargePackage>>(
+        future: _packagesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Error loading packages: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No recharge packages available.'));
+          } else {
+            final packages = snapshot.data!;
+            return GridView.builder(
               padding: const EdgeInsets.all(16.0),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -170,7 +175,10 @@ class _RechargeListScreenState extends State<RechargeListScreen> {
                 final package = packages[index];
                 return _buildPackageCard(context, package);
               },
-            ),
+            );
+          }
+        },
+      ),
     );
   }
 
@@ -224,7 +232,7 @@ class _RechargeListScreenState extends State<RechargeListScreen> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                     child: Text(
-                      package.price,
+                      '${package.coins} Coins',
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                     ),

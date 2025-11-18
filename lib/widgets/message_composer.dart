@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 
 class MessageComposer extends StatefulWidget {
   final Function(String) onSend;
+  final VoidCallback onAttach;
 
-  const MessageComposer({super.key, required this.onSend});
+  const MessageComposer({super.key, required this.onSend, required this.onAttach});
 
   @override
   State<MessageComposer> createState() => _MessageComposerState();
@@ -27,6 +28,10 @@ class _MessageComposerState extends State<MessageComposer> {
       color: Theme.of(context).cardColor,
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.attach_file),
+            onPressed: widget.onAttach,
+          ),
           Expanded(
             child: TextField(
               controller: _controller,
