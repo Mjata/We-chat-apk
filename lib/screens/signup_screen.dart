@@ -42,7 +42,6 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     try {
-      // 1. Create user in Firebase Auth
       final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -51,7 +50,6 @@ class _SignupScreenState extends State<SignupScreen> {
       if (userCredential.user != null) {
         developer.log("Firebase Email/Pass Sign-Up successful. User: ${userCredential.user!.uid}", name: 'SignupScreen');
 
-        // 2. Set up user on our backend
         try {
           await _apiService.setupNewUser();
           developer.log("Backend setupNewUser successful.", name: 'SignupScreen');
@@ -60,7 +58,6 @@ class _SignupScreenState extends State<SignupScreen> {
           }
         } catch (e) {
           developer.log("Error calling setupNewUser: $e", error: e, name: 'SignupScreen');
-          // If backend setup fails, sign out from Firebase to allow a clean retry
           await _auth.signOut();
           if (mounted) {
             _showErrorSnackBar("Failed to set up your user profile on the server. Please try again.");
@@ -78,6 +75,16 @@ class _SignupScreenState extends State<SignupScreen> {
       if (mounted) {
         _showErrorSnackBar(message);
       }
+    } on TypeError catch (e) {
+        developer.log(
+            'A TypeError occurred during sign-up. This might be a data parsing issue.',
+            error: e,
+            stackTrace: e.stackTrace,
+            name: 'SignupScreen',
+        );
+        if (mounted) {
+            _showErrorSnackBar("A data processing error occurred. Please check the logs.");
+        }
     } catch (e) {
       developer.log("An unexpected error occurred during sign-up: $e", error: e, name: 'SignupScreen');
       if (mounted) {
@@ -121,7 +128,6 @@ class _SignupScreenState extends State<SignupScreen> {
       if (userCredential.user != null) {
         developer.log("Firebase Google Sign-In successful. User: ${userCredential.user!.displayName}", name: 'SignupScreen');
 
-        // Only call setupNewUser if the user is genuinely new to Firebase
         if (userCredential.additionalUserInfo?.isNewUser == true) {
           developer.log("New user detected. Calling setupNewUser on backend...", name: 'SignupScreen');
           try {
@@ -129,7 +135,7 @@ class _SignupScreenState extends State<SignupScreen> {
             developer.log("Backend setupNewUser successful.", name: 'SignupScreen');
           } catch (e) {
             developer.log("Error calling setupNewUser: $e", error: e, name: 'SignupScreen');
-            await _auth.signOut(); // Clean up on failure
+            await _auth.signOut(); 
             if (mounted) {
               _showErrorSnackBar("Failed to set up user profile on the server. Please try again.");
             }
@@ -140,11 +146,20 @@ class _SignupScreenState extends State<SignupScreen> {
           developer.log("Existing user logged in.", name: 'SignupScreen');
         }
         
-        // Navigate regardless of new or existing user status after successful login
         if (mounted) {
           context.go('/gender');
         }
       }
+    } on TypeError catch (e) {
+        developer.log(
+            'A TypeError occurred during Google sign-in. This might be a data parsing issue.',
+            error: e,
+            stackTrace: e.stackTrace,
+            name: 'SignupScreen',
+        );
+        if (mounted) {
+            _showErrorSnackBar("A data processing error occurred. Please check the logs.");
+        }
     } catch (e) {
       developer.log("Google Sign-In failed: $e", error: e, name: 'SignupScreen');
       if (mounted) {

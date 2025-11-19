@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:myapp/screens/gender_selection_screen.dart';
 import 'package:myapp/screens/interest_selection_screen.dart';
+import 'package:myapp/screens/login_screen.dart';
 import 'package:myapp/screens/main_screen.dart';
 import 'package:myapp/screens/signup_screen.dart';
 import 'package:myapp/screens/welcome_screen.dart';
@@ -46,19 +47,38 @@ class ThemeProvider with ChangeNotifier {
 }
 
 final GoRouter _router = GoRouter(
+  initialLocation: '/welcome',
   routes: <RouteBase>[
     GoRoute(
-      path: '/',
+      path: '/welcome',
+      builder: (BuildContext context, GoRouterState state) {
+        return const WelcomeScreen();
+      },
+    ),
+    GoRoute(
+      path: '/signup',
       builder: (BuildContext context, GoRouterState state) {
         return const SignupScreen();
       },
-      routes: <RouteBase>[
-        GoRoute(
-          path: 'gender',
-          builder: (BuildContext context, GoRouterState state) {
-            return const GenderSelectionScreen();
-          },
-        ),
+    ),
+    GoRoute(
+      path: '/login',
+      builder: (BuildContext context, GoRouterState state) {
+        return const LoginScreen();
+      },
+    ),
+    GoRoute(
+      path: '/gender',
+      builder: (BuildContext context, GoRouterState state) {
+        return const GenderSelectionScreen();
+      },
+    ),
+    GoRoute(
+      path: '/', // Root route should point to home or main screen
+      builder: (BuildContext context, GoRouterState state) {
+        return const MainScreen();
+      },
+       routes: <RouteBase>[
         GoRoute(
           path: 'interest',
           builder: (BuildContext context, GoRouterState state) {
@@ -66,15 +86,9 @@ final GoRouter _router = GoRouter(
           },
         ),
         GoRoute(
-          path: 'main',
+          path: 'home',
           builder: (BuildContext context, GoRouterState state) {
             return const MainScreen();
-          },
-        ),
-         GoRoute(
-          path: 'welcome',
-          builder: (BuildContext context, GoRouterState state) {
-            return const WelcomeScreen();
           },
         ),
       ],
