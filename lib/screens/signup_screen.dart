@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:myapp/services/api_service.dart'; 
-import 'dart:developer' as developer; 
+import 'package:myapp/services/api_service.dart';
+import 'dart:developer' as developer;
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -17,9 +17,81 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
-  final ApiService _apiService = ApiService(); 
+  final ApiService _apiService = ApiService();
+
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signUpWithEmailAndPassword() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 1. Create user in Firebase Auth
+      final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      if (userCredential.user != null) {
+        developer.log("Firebase Email/Pass Sign-Up successful. User: ${userCredential.user!.uid}", name: 'SignupScreen');
+
+        // 2. Set up user on our backend
+        try {
+          await _apiService.setupNewUser();
+          developer.log("Backend setupNewUser successful.", name: 'SignupScreen');
+          if (mounted) {
+            context.go('/gender');
+          }
+        } catch (e) {
+          developer.log("Error calling setupNewUser: $e", error: e, name: 'SignupScreen');
+          // If backend setup fails, sign out from Firebase to allow a clean retry
+          await _auth.signOut();
+          if (mounted) {
+            _showErrorSnackBar("Failed to set up your user profile on the server. Please try again.");
+          }
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      developer.log("Email/Pass Sign-Up failed: ${e.code}", error: e, name: 'SignupScreen');
+      String message = "Sign-up failed. Please try again.";
+      if (e.code == 'weak-password') {
+        message = 'The password provided is too weak.';
+      } else if (e.code == 'email-already-in-use') {
+        message = 'An account already exists for that email.';
+      }
+      if (mounted) {
+        _showErrorSnackBar(message);
+      }
+    } catch (e) {
+      developer.log("An unexpected error occurred during sign-up: $e", error: e, name: 'SignupScreen');
+      if (mounted) {
+        _showErrorSnackBar("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
 
   Future<void> _signInWithGoogle() async {
     setState(() {
@@ -30,14 +102,15 @@ class _SignupScreenState extends State<SignupScreen> {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         developer.log('Google Sign-In cancelled by user.', name: 'SignupScreen');
-        setState(() {
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
         return;
       }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -48,6 +121,7 @@ class _SignupScreenState extends State<SignupScreen> {
       if (userCredential.user != null) {
         developer.log("Firebase Google Sign-In successful. User: ${userCredential.user!.displayName}", name: 'SignupScreen');
 
+        // Only call setupNewUser if the user is genuinely new to Firebase
         if (userCredential.additionalUserInfo?.isNewUser == true) {
           developer.log("New user detected. Calling setupNewUser on backend...", name: 'SignupScreen');
           try {
@@ -55,19 +129,18 @@ class _SignupScreenState extends State<SignupScreen> {
             developer.log("Backend setupNewUser successful.", name: 'SignupScreen');
           } catch (e) {
             developer.log("Error calling setupNewUser: $e", error: e, name: 'SignupScreen');
-            await _auth.signOut();
+            await _auth.signOut(); // Clean up on failure
             if (mounted) {
               _showErrorSnackBar("Failed to set up user profile on the server. Please try again.");
             }
-            setState(() {
-              _isLoading = false;
-            });
+            setState(() {_isLoading = false;});
             return;
           }
         } else {
           developer.log("Existing user logged in.", name: 'SignupScreen');
         }
-
+        
+        // Navigate regardless of new or existing user status after successful login
         if (mounted) {
           context.go('/gender');
         }
@@ -91,6 +164,7 @@ class _SignupScreenState extends State<SignupScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -113,7 +187,7 @@ class _SignupScreenState extends State<SignupScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: _isLoading
-                ? const CircularProgressIndicator()
+                ? const CircularProgressIndicator(color: Colors.white)
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -134,67 +208,79 @@ class _SignupScreenState extends State<SignupScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Create Account',
-              style: GoogleFonts.oswald(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const TextField(
-              decoration: InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Create Account',
+                style: GoogleFonts.oswald(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            const TextField(
-              decoration: InputDecoration(
-                labelText: 'Password',
-                prefixIcon: Icon(Icons.lock_outline),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
                 ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty || !value.contains('@')) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
               ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => context.go('/gender'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
                 ),
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty || value.length < 6) {
+                    return 'Password must be at least 6 characters long';
+                  }
+                  return null;
+                },
               ),
-              child: const Text('Sign Up'),
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () {},
-              child: const Text('Forgot Password?'),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text("Already have an account?"),
-                TextButton(
-                  onPressed: () => context.go('/welcome'),
-                  child: const Text('Sign In'),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _signUpWithEmailAndPassword,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ],
-            ),
-          ],
+                child: const Text('Sign Up'),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Already have an account?"),
+                  TextButton(
+                    onPressed: () => context.go('/welcome'),
+                    child: const Text('Sign In'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -212,22 +298,12 @@ class _SignupScreenState extends State<SignupScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton.icon(
-              onPressed: _isLoading ? null : _signInWithGoogle, 
+              onPressed: _isLoading ? null : _signInWithGoogle,
               icon: const FaIcon(FontAwesomeIcons.google, color: Colors.red),
               label: const Text('Google'),
               style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-            const SizedBox(width: 16),
-            ElevatedButton.icon(
-              onPressed: () {}, 
-              icon: const FaIcon(FontAwesomeIcons.facebook, color: Colors.blue),
-              label: const Text('Facebook'),
-              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
