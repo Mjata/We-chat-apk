@@ -61,12 +61,11 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       final String roomName = currentUser.uid;
       final String participantIdentity = currentUser.uid;
 
-      await _apiService.startLiveStream();
+      // Using a placeholder image URL for now
+      final String streamImageUrl = currentUser.photoURL ?? 'https://picsum.photos/seed/$roomName/400/400';
+      await _apiService.startLiveStream(streamImageUrl);
 
       final token = await _apiService.getLiveKitToken(roomName, participantIdentity);
-      if (token == null) {
-        throw Exception('Failed to get a valid token from the backend.');
-      }
 
       _room = Room();
       final listener = _room!.createListener();
@@ -77,7 +76,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         developer.log('Local track published: ${event.publication.kind}');
       });
 
-      await _room!.connect('wss://we-chat-k0bb5qx2.livekit.cloud', token);
+      await _room!.connect('wss://we-chat-1-flwd.onrender.com', token);
 
       if (_videoTrack == null || _videoTrack!.isDisposed) {
         await _initializePreview();

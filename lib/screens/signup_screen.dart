@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -49,42 +50,13 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (userCredential.user != null) {
         developer.log("Firebase Email/Pass Sign-Up successful. User: ${userCredential.user!.uid}", name: 'SignupScreen');
-
-        try {
-          await _apiService.setupNewUser();
-          developer.log("Backend setupNewUser successful.", name: 'SignupScreen');
-          if (mounted) {
-            context.go('/gender');
-          }
-        } catch (e) {
-          developer.log("Error calling setupNewUser: $e", error: e, name: 'SignupScreen');
-          await _auth.signOut();
-          if (mounted) {
-            _showErrorSnackBar("Failed to set up your user profile on the server. Please try again.");
-          }
-        }
+        await _syncUserWithBackend(userCredential.user!, isNewUser: true);
       }
     } on FirebaseAuthException catch (e) {
       developer.log("Email/Pass Sign-Up failed: ${e.code}", error: e, name: 'SignupScreen');
-      String message = "Sign-up failed. Please try again.";
-      if (e.code == 'weak-password') {
-        message = 'The password provided is too weak.';
-      } else if (e.code == 'email-already-in-use') {
-        message = 'An account already exists for that email.';
+       if (mounted) {
+        _showErrorSnackBar(_getFriendlyAuthErrorMessage(e.code));
       }
-      if (mounted) {
-        _showErrorSnackBar(message);
-      }
-    } on TypeError catch (e) {
-        developer.log(
-            'A TypeError occurred during sign-up. This might be a data parsing issue.',
-            error: e,
-            stackTrace: e.stackTrace,
-            name: 'SignupScreen',
-        );
-        if (mounted) {
-            _showErrorSnackBar("A data processing error occurred. Please check the logs.");
-        }
     } catch (e) {
       developer.log("An unexpected error occurred during sign-up: $e", error: e, name: 'SignupScreen');
       if (mounted) {
@@ -108,12 +80,7 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        developer.log('Google Sign-In cancelled by user.', name: 'SignupScreen');
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
@@ -126,44 +93,19 @@ class _SignupScreenState extends State<SignupScreen> {
       final UserCredential userCredential = await _auth.signInWithCredential(credential);
 
       if (userCredential.user != null) {
-        developer.log("Firebase Google Sign-In successful. User: ${userCredential.user!.displayName}", name: 'SignupScreen');
-
-        if (userCredential.additionalUserInfo?.isNewUser == true) {
-          developer.log("New user detected. Calling setupNewUser on backend...", name: 'SignupScreen');
-          try {
-            await _apiService.setupNewUser();
-            developer.log("Backend setupNewUser successful.", name: 'SignupScreen');
-          } catch (e) {
-            developer.log("Error calling setupNewUser: $e", error: e, name: 'SignupScreen');
-            await _auth.signOut(); 
-            if (mounted) {
-              _showErrorSnackBar("Failed to set up user profile on the server. Please try again.");
-            }
-            setState(() {_isLoading = false;});
-            return;
-          }
-        } else {
-          developer.log("Existing user logged in.", name: 'SignupScreen');
-        }
-        
-        if (mounted) {
-          context.go('/gender');
-        }
+         developer.log("Firebase Google Sign-In successful. User: ${userCredential.user!.uid}", name: 'SignupScreen');
+        final bool isNewUser = userCredential.additionalUserInfo?.isNewUser ?? false;
+        await _syncUserWithBackend(userCredential.user!, isNewUser: isNewUser);
       }
-    } on TypeError catch (e) {
-        developer.log(
-            'A TypeError occurred during Google sign-in. This might be a data parsing issue.',
-            error: e,
-            stackTrace: e.stackTrace,
-            name: 'SignupScreen',
-        );
-        if (mounted) {
-            _showErrorSnackBar("A data processing error occurred. Please check the logs.");
+    } on FirebaseAuthException catch (e) {
+        developer.log("Google Sign-In failed: ${e.code}", error: e, name: 'SignupScreen');
+        if(mounted) {
+             _showErrorSnackBar(_getFriendlyAuthErrorMessage(e.code));
         }
     } catch (e) {
-      developer.log("Google Sign-In failed: $e", error: e, name: 'SignupScreen');
+      developer.log("An unexpected error occurred during Google sign-in: $e", error: e, name: 'SignupScreen');
       if (mounted) {
-        _showErrorSnackBar("Google Sign-In failed. Please try again.");
+        _showErrorSnackBar("An unexpected error occurred. Please try again.");
       }
     } finally {
       if (mounted) {
@@ -172,6 +114,47 @@ class _SignupScreenState extends State<SignupScreen> {
         });
       }
     }
+  }
+
+    Future<void> _syncUserWithBackend(User user, {bool isNewUser = false}) async {
+    try {
+      developer.log('Attempting to sync user with backend...', name: 'SignupScreen');
+      final userData = {
+        'uid': user.uid,
+        'email': user.email,
+        'displayName': user.displayName,
+        'photoURL': user.photoURL,
+      };
+      await _apiService.syncUser(userData);
+      developer.log('User synced with backend successfully.', name: 'SignupScreen');
+      if (mounted) {
+        // For new users, navigate to the gender selection screen.
+        // For existing users (who signed up on another device and are now using Google Sign-In),
+        // navigate to the main home screen.
+        context.go(isNewUser ? '/gender' : '/home');
+      }
+    } catch (e) {
+      developer.log('Failed to sync user with backend.', error: e, name: 'SignupScreen');
+      if (mounted) {
+        await _auth.signOut();
+        _showErrorSnackBar('Could not connect to our servers. Please try again later.');
+      }
+    }
+  }
+
+  String _getFriendlyAuthErrorMessage(String code) {
+      switch (code) {
+        case 'weak-password':
+          return 'The password provided is too weak.';
+        case 'email-already-in-use':
+          return 'An account already exists for that email.';
+        case 'invalid-email':
+          return 'The email address is not valid.';
+        case 'account-exists-with-different-credential':
+            return 'An account already exists with the same email address but different sign-in credentials.';
+        default:
+          return 'Sign-up failed. Please try again.';
+      }
   }
 
   void _showErrorSnackBar(String message) {

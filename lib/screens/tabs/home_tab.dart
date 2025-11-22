@@ -1,7 +1,7 @@
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:myapp/models/user.dart';
-import 'package:myapp/screens/user_profile_screen.dart';
 import 'package:myapp/services/api_service.dart';
 import 'package:myapp/widgets/user_card.dart';
 
@@ -68,16 +68,10 @@ class _HomeTabState extends State<HomeTab> {
               final user = users[index];
               return UserCard(
                 user: user,
-                onTap: () {
-                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (context) => UserProfileScreen(
-                        user: user,
-                        currentUser: _currentUser!, // Pass the current user
-                        ),
-                    ),
-                    );
-                },
+                onTap: () => context.go('/profile', extra: {'user': user, 'currentUser': _currentUser!}),
+                onMessage: () => context.go('/chat', extra: {'recipient': user}),
+                onVoiceCall: () {},
+                onVideoCall: () {},
               );
             },
           );

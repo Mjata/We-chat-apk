@@ -35,9 +35,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // The local user (current user) is the one initiating the call
       final token = await _apiService.getLiveKitToken(_roomName, widget.currentUser.id);
 
-      if (token == null) {
-        throw Exception('Failed to get a valid token from the server.');
-      }
       if (!mounted) return;
 
       navigator.push(

@@ -1,230 +1,164 @@
 
 import 'package:dio/dio.dart';
-import 'auth_interceptor.dart'; // Import interceptor
-import 'dart:developer' as developer;
-
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
-  final Dio _dio;
-  
-  // Tumia URL yako ya Render hapa kwa production
-  static const String _baseUrl = 'https://we-chat-1-flwd.onrender.com/api'; 
+  final Dio _dio = Dio();
+  // Using the backend URL you provided
+  final String _baseUrl = 'https://de36-102-140-226-215.ngrok-free.app/api';
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  ApiService()
-      : _dio = Dio(BaseOptions(
-          baseUrl: _baseUrl,
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 3),
-        )) {
-    // Sajili Interceptor
-    _dio.interceptors.add(AuthInterceptor());
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onResponse: (response, handler) {
-          developer.log(
-            'RESPONSE[${response.statusCode}] => PATH: ${response.requestOptions.path}',
-          );
-          return handler.next(response); // Continue with the response
-        },
-        onError: (DioException e, handler) {
-          developer.log(
-            'ERROR[${e.response?.statusCode}] => PATH: ${e.requestOptions.path}',
-            error: e.response?.data,
-          );
-          return handler.next(e); // Continue with the error
-        },
-      ),
-    );
-  }
-
-  // Helper function for error handling
-  Exception _handleError(DioException e) {
-    String errorMessage = "An unknown error occurred";
-    if (e.response != null) {
-        // Use the error message from the backend if available
-        final responseData = e.response?.data;
-        if (responseData is Map<String, dynamic> && responseData.containsKey('error')) {
-            errorMessage = responseData['error'];
-        } else {
-            errorMessage = "Server error: ${e.response?.statusCode} ${e.response?.statusMessage}";
-        }
-    } else {
-      errorMessage = "Network error: Please check your connection.";
+  // Helper to get auth token
+  Future<Options> _getAuthHeaders() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      // In a real app, you might want to trigger a logout/login flow
+      throw Exception('User not logged in');
     }
-    return Exception(errorMessage);
+    final token = await user.getIdToken();
+    return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
-
-  /// =================================================
-  /// AUTHENTICATION
-  /// =================================================
-  
-  Future<Map<String, dynamic>> signUp(String email, String password) async {
-    try {
-      final response = await _dio.post('/auth/signup', data: {
-        'email': email,
-        'password': password,
-      });
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// =================================================
-  /// USER PROFILE
-  /// =================================================
-
-  Future<void> updateUserProfile(Map<String, dynamic> data) async {
-    try {
-      await _dio.patch('/user/profile', data: data);
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
+  // --- User & Auth ---
   Future<List<dynamic>> getUsers() async {
+    // This should fetch users from your actual backend
     try {
-      final response = await _dio.get('/users');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
+      final options = await _getAuthHeaders();
+      final response = await _dio.get('$_baseUrl/users', options: options);
+      return response.data; 
+    } catch (e) {
+       // Fallback to random users if your backend fails for demonstration
+      final response = await _dio.get('https://randomuser.me/api/?results=20');
+      return response.data['results'];
     }
   }
 
-  /// =================================================
-  /// MESSAGING
-  /// =================================================
+  Future<void> syncUser(Map<String, dynamic> userData) async {
+    try {
+      final options = await _getAuthHeaders();
+      await _dio.post('$_baseUrl/users/sync', data: userData, options: options);
+    } catch (e) {
+      throw Exception('Failed to sync user: $e');
+    }
+  }
 
+  Future<void> updateUserProfile(Map<String, dynamic> profileData) async {
+    try {
+      final options = await _getAuthHeaders();
+      await _dio.put('$_baseUrl/users/profile', data: profileData, options: options);
+    } catch (e) {
+      throw Exception('Failed to update user profile: $e');
+    }
+  }
+
+  // --- LiveKit ---
+  Future<String> getLiveKitToken(String roomName, String participantName) async {
+    try {
+      final options = await _getAuthHeaders();
+      final response = await _dio.post(
+        '$_baseUrl/livekit/token',
+        data: {'roomName': roomName, 'participantName': participantName},
+        options: options,
+      );
+      return response.data['token'];
+    } catch (e) {
+      throw Exception('Failed to get LiveKit token: $e');
+    }
+  }
+
+  // --- Calls ---
+  Future<List<dynamic>> getCallHistory() async {
+    try {
+      final options = await _getAuthHeaders();
+      final response = await _dio.get('$_baseUrl/calls/history', options: options);
+      return response.data; // Assuming it returns a list
+    } catch (e) {
+      throw Exception('Failed to get call history: $e');
+    }
+  }
+
+  Future<void> chargeCallDuration(String callId, int durationInSeconds) async {
+    try {
+      final options = await _getAuthHeaders();
+      await _dio.post(
+        '$_baseUrl/calls/charge',
+        data: {'callId': callId, 'duration': durationInSeconds},
+        options: options,
+      );
+    } catch (e) {
+      throw Exception('Failed to charge for call: $e');
+    }
+  }
+
+  // --- Messaging ---
   Future<List<dynamic>> getConversations() async {
     try {
-      final response = await _dio.get('/conversations');
+      final options = await _getAuthHeaders();
+      final response = await _dio.get('$_baseUrl/conversations', options: options);
+      return response.data; // Assuming it returns a list
+    } catch (e) {
+      throw Exception('Failed to get conversations: $e');
+    }
+  }
+
+  // --- Livestreaming ---
+  Future<List<dynamic>> getLiveStreams() async {
+    try {
+      final options = await _getAuthHeaders();
+      final response = await _dio.get('$_baseUrl/livestreams', options: options);
       return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
+    } catch (e) {
+      throw Exception('Failed to get live streams: $e');
     }
   }
 
-
-  /// 1. User & Account
-  Future<void> setupNewUser() async {
+  Future<void> startLiveStream(String streamImageUrl) async {
     try {
-      await _dio.post('/setupNewUser');
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// 2. Payments & Recharge (Pesapal)
-  Future<String?> initiateMpesaPayment(String packageId, String phoneNumber) async {
-    try {
-      final response = await _dio.post(
-        '/recharge/initiate',
-        data: {'packageId': packageId, 'phoneNumber': phoneNumber},
+      final options = await _getAuthHeaders();
+      await _dio.post(
+        '$_baseUrl/livestreams/start',
+        data: {'liveStreamImageUrl': streamImageUrl},
+        options: options,
       );
-      return response.data['redirectUrl'];
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-    Future<List<dynamic>> getRechargePackages() async {
-    try {
-      final response = await _dio.get('/recharge/packages');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// 3. Live Streaming
-  Future<void> startLiveStream() async {
-    try {
-      await _dio.post('/livestreams/start');
-    } on DioException catch (e) {
-        // The interceptor logs the error, just re-throw it for the UI to handle
-        throw _handleError(e);
+    } catch (e) {
+      throw Exception('Failed to start live stream: $e');
     }
   }
 
   Future<void> stopLiveStream() async {
     try {
-      await _dio.post('/livestreams/stop');
-    } on DioException catch (e) {
-      throw _handleError(e);
+      final options = await _getAuthHeaders();
+      await _dio.post('$_baseUrl/livestreams/stop', options: options);
+    } catch (e) {
+      throw Exception('Failed to stop live stream: $e');
     }
   }
 
-  Future<List<dynamic>> getLiveStreams() async {
+  // --- Payments & Recharge ---
+  Future<List<dynamic>> getRechargePackages() async {
     try {
-      final response = await _dio.get('/livestreams');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
+      final options = await _getAuthHeaders();
+      final response = await _dio.get('$_baseUrl/payments/packages', options: options);
+      return response.data; // Assuming it returns a list of packages
+    } catch (e) {
+      throw Exception('Failed to get recharge packages: $e');
     }
   }
 
-  /// 4. Video & Voice Calls
-  
-  /// [DEPRECATED] This is no longer used. See chargeCallDuration.
-  // Future<bool> chargeCall(String callId) async { ... }
-
-  /// NEW: Charges the user's coins based on the call duration after it ends.
-  Future<void> chargeCallDuration({required int durationInSeconds}) async {
-    try {
-      await _dio.post('/calls/charge-duration', data: {
-        'durationInSeconds': durationInSeconds,
-      });
-      developer.log('Successfully charged for call duration: $durationInSeconds seconds');
-    } on DioException catch (e) {
-        developer.log('Error in chargeCallDuration', error: e);
-        throw _handleError(e);
-    }
-  }
-
-  Future<List<dynamic>> getCallHistory() async {
-    try {
-      final response = await _dio.get('/calls/history');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-
-  Future<void> endCall(String callId, int durationInSeconds) async {
-    try {
-      await _dio.post(
-        '/calls/end',
-        data: {'callId': callId, 'duration': durationInSeconds},
-      );
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// 5. AdMob Rewards
-  Future<void> grantAdReward() async {
-    try {
-      await _dio.post('/rewards/grant-ad-reward');
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  /// 6. LiveKit Token
-  Future<String?> getLiveKitToken(String roomName, String participantIdentity) async {
-    try {
+  Future<String?> initiateMpesaPayment(String packageId, String phoneNumber) async {
+     try {
+      final options = await _getAuthHeaders();
       final response = await _dio.post(
-        '/calls/livekit-token',
+        '$_baseUrl/payments/mpesa/initiate', 
         data: {
-          'roomName': roomName,
-          'participantIdentity': participantIdentity,
+          'packageId': packageId,
+          'phoneNumber': phoneNumber,
         },
+        options: options,
       );
-        return response.data['token'];
-    } on DioException catch (e) {
-      throw _handleError(e);
+      return response.data['redirectUrl'];
+    } catch (e) {
+      throw Exception('Failed to initiate M-Pesa payment: $e');
     }
   }
 }

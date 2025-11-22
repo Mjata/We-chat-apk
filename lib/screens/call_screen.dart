@@ -103,7 +103,7 @@ class _CallScreenState extends State<CallScreen> {
     _callTimer?.cancel();
 
     try {
-        await _apiService.chargeCallDuration(durationInSeconds: _callDurationInSeconds);
+        await _apiService.chargeCallDuration(widget.roomName, _callDurationInSeconds);
     } catch(e) {
         debugPrint('Error charging for call: $e');
         // Even if charging fails, we should still leave the call

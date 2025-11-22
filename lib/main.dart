@@ -1,12 +1,7 @@
+
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:myapp/screens/gender_selection_screen.dart';
-import 'package:myapp/screens/interest_selection_screen.dart';
-import 'package:myapp/screens/login_screen.dart';
-import 'package:myapp/screens/main_screen.dart';
-import 'package:myapp/screens/signup_screen.dart';
-import 'package:myapp/screens/welcome_screen.dart';
+import 'package:myapp/router/router.dart'; // Import the new router
 import 'package:myapp/services/user_profile_service.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -46,55 +41,6 @@ class ThemeProvider with ChangeNotifier {
   }
 }
 
-final GoRouter _router = GoRouter(
-  initialLocation: '/welcome',
-  routes: <RouteBase>[
-    GoRoute(
-      path: '/welcome',
-      builder: (BuildContext context, GoRouterState state) {
-        return const WelcomeScreen();
-      },
-    ),
-    GoRoute(
-      path: '/signup',
-      builder: (BuildContext context, GoRouterState state) {
-        return const SignupScreen();
-      },
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (BuildContext context, GoRouterState state) {
-        return const LoginScreen();
-      },
-    ),
-    GoRoute(
-      path: '/gender',
-      builder: (BuildContext context, GoRouterState state) {
-        return const GenderSelectionScreen();
-      },
-    ),
-    GoRoute(
-      path: '/', // Root route should point to home or main screen
-      builder: (BuildContext context, GoRouterState state) {
-        return const MainScreen();
-      },
-       routes: <RouteBase>[
-        GoRoute(
-          path: 'interest',
-          builder: (BuildContext context, GoRouterState state) {
-            return const InterestSelectionScreen();
-          },
-        ),
-        GoRoute(
-          path: 'home',
-          builder: (BuildContext context, GoRouterState state) {
-            return const MainScreen();
-          },
-        ),
-      ],
-    ),
-  ],
-);
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -165,7 +111,7 @@ class MyApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeProvider.themeMode,
-          routerConfig: _router,
+          routerConfig: router, // Use the new router
         );
       },
     );

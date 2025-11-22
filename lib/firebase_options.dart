@@ -58,7 +58,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCxibJU6Ef7I36_x0IfP2iYYV-mDsePl3c',
-    appId: '1:1067772183738:android:c1546b0fcc1f3097f8ae83',
+    appId: '1:1067772183738:android:517c9efc24ba0651f8ae83',
     messagingSenderId: '1067772183738',
     projectId: 'hrmchat-67388',
     storageBucket: 'hrmchat-67388.firebasestorage.app',
@@ -66,10 +66,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB1AbQVMiPOSmJ8GfVLQO01SH435j0Dep0',
-    appId: '1:1067772183738:ios:c0c89037449d784af8ae83',
+    appId: '1:1067772183738:ios:b651890254ab5a77f8ae83',
     messagingSenderId: '1067772183738',
     projectId: 'hrmchat-67388',
     storageBucket: 'hrmchat-67388.firebasestorage.app',
-    iosBundleId: 'com.wechat.app',
+    androidClientId: '1067772183738-kqdlmnvqqjp6nq8aeusbt56vh6scbvk2.apps.googleusercontent.com',
+    iosClientId: '1067772183738-h2acp02sorcn7pj8f3dmb4psmc00r4cs.apps.googleusercontent.com',
+    iosBundleId: 'com.hrmchat.app',
   );
+
 }
