@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   final Dio _dio = Dio();
-  // Using the backend URL you provided
-  final String _baseUrl = 'https://de36-102-140-226-215.ngrok-free.app/api';
+  // Using the new production backend URL
+  final String _baseUrl = 'https://we-chat-1-flwd.onrender.com/api';
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Helper to get auth token
